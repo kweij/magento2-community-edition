@@ -6,6 +6,9 @@
 
 namespace Magento\Update\Queue\JobUpdate;
 
+use Composer\Console\Application;
+use Symfony\Component\Console\Output\BufferedOutput;
+
 /**
  * Class for managing main Magento composer configuration file.
  */
@@ -21,17 +24,43 @@ class ComposerManager
     const PACKAGE_NAME = 'package_name';
     const PACKAGE_VERSION = 'package_version';
 
+    const PARAM_COMMAND = 'command';
+    const PARAM_NO_UPDATE = '--no-update';
+    const PARAM_PACKAGES = 'packages';
+
+    const COMPOSER_HOME_DIR = 'var/composer_home';
+
     /** @var string */
     protected $composerConfigFileDir;
+
+    /** @var \Magento\Update\Queue\JobUpdate\ConsoleArrayInputFactory */
+    protected $consoleArrayInputFactory;
+
+    /** @var \Symfony\Component\Console\Output\BufferedOutput */
+    protected $consoleOutput;
+
+    /** @var \Composer\Console\Application */
+    protected $consoleApplication;
 
     /**
      * Initialize dependencies.
      *
      * @param string|null $composerConfigFileDir
+     * @param ConsoleArrayInputFactory|null $consoleArrayInputFactory
+     * @param BufferedOutput|null $consoleOutput
+     * @param Application|null $consoleApplication
      */
-    public function __construct($composerConfigFileDir = null)
-    {
+    public function __construct(
+        $composerConfigFileDir = null,
+        ConsoleArrayInputFactory $consoleArrayInputFactory = null,
+        BufferedOutput $consoleOutput = null,
+        Application $consoleApplication = null
+    ) {
         $this->composerConfigFileDir = $composerConfigFileDir ? $composerConfigFileDir : MAGENTO_BP;
+        $this->consoleArrayInputFactory = $consoleArrayInputFactory ? $consoleArrayInputFactory
+            : new ConsoleArrayInputFactory();
+        $this->consoleOutput = $consoleOutput ? $consoleOutput : new BufferedOutput();
+        $this->consoleApplication = $consoleApplication ? $consoleApplication : new Application();
     }
 
     /**
@@ -62,7 +91,7 @@ class ComposerManager
      */
     public function runUpdate()
     {
-        return $this->runComposerCommand(self::COMPOSER_UPDATE);
+        return $this->runComposerCommand([self::PARAM_COMMAND => self::COMPOSER_UPDATE]);
     }
 
     /**
@@ -74,42 +103,38 @@ class ComposerManager
      */
     protected function updateRequireDirective(array $params)
     {
-        $commandParams = '';
+        $commandParams = [self::PARAM_COMMAND => self::COMPOSER_REQUIRE, self::PARAM_NO_UPDATE => true];
         $packageList = [];
         foreach ($params as $param) {
             if (!isset($param[self::PACKAGE_NAME]) || !isset($param[self::PACKAGE_VERSION])) {
                 throw new \RuntimeException('Incorrect/missing parameters for composer directive "require"');
             }
-            $commandParams .= $param[self::PACKAGE_NAME] . ':' . $param[self::PACKAGE_VERSION] . ' ';
+            $commandParams[self::PARAM_PACKAGES][] = $param[self::PACKAGE_NAME] . ':' . $param[self::PACKAGE_VERSION];
             $packageList[] = $param[self::PACKAGE_NAME];
         }
         $this->removeReplaceDirective($packageList);
-        $commandParams .= ' --no-update';
-        return $this->runComposerCommand(self::COMPOSER_REQUIRE, $commandParams);
+        return $this->runComposerCommand($commandParams);
     }
 
     /**
      * Run composer command
      *
-     * @param string $command
-     * @param string|null $commandParams
+     * @param array $commandParams
      * @return bool
      * @throws \RuntimeException
      */
-    protected function runComposerCommand($command, $commandParams = null)
+    protected function runComposerCommand(array $commandParams)
     {
-        $fullCommand = sprintf(
-            'cd %s && php -f %s/vendor/composer/composer/bin/composer %s %s',
-            $this->composerConfigFileDir,
-            UPDATER_BP,
-            $command,
-            $commandParams
-        );
+        $input = $this->consoleArrayInputFactory->create($commandParams);
+        $this->consoleApplication->setAutoExit(false);
+        putenv('COMPOSER_HOME=' . self::COMPOSER_HOME_DIR);
+        putenv('COMPOSER=' . $this->composerConfigFileDir . '/composer.json');
+        $exitCode = $this->consoleApplication->run($input, $this->consoleOutput);
 
-        exec($fullCommand, $output, $return);
-
-        if ($return) {
-            throw new \RuntimeException(sprintf('Command "%s" failed: %s', $fullCommand, join("\n", $output)));
+        if ($exitCode) {
+            throw new \RuntimeException(
+                sprintf('Command "%s" failed: %s', $commandParams['command'], $this->consoleOutput->fetch())
+            );
         }
         return true;
     }

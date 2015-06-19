@@ -35,17 +35,22 @@ class CronTest extends \PHPUnit_Framework_TestCase
      */
     protected $status;
 
+    /** @var string */
+    protected $backupPath;
+
     protected function setUp()
     {
+        $this->backupPath = TESTS_TEMP_DIR . '/var/backup';
+        if (!is_dir($this->backupPath)) {
+            mkdir($this->backupPath, 0777, true);
+        }
+
         $this->cronScript = UPDATER_BP . '/cron.php';
-        $this->backupToRollback = TESTS_TEMP_DIR . '/var/backup/BackupToRollback.zip';
-        $this->backupToRemoveA = TESTS_TEMP_DIR . '/var/backup/BackupToRemoveA.zip';
-        $this->backupToRemoveB = TESTS_TEMP_DIR . '/var/backup/BackupToRemoveB.zip';
+        $this->backupToRollback = $this->backupPath . '/BackupToRollback.zip';
+        $this->backupToRemoveA = $this->backupPath . '/BackupToRemoveA.zip';
+        $this->backupToRemoveB = $this->backupPath . '/BackupToRemoveB.zip';
         $this->status = new \Magento\Update\Status();
 
-        if (!is_dir(TESTS_TEMP_DIR . '/var/backup')) {
-            mkdir(TESTS_TEMP_DIR . '/var/backup', 0777, true);
-        }
         file_put_contents($this->backupToRollback, 'w');
         file_put_contents($this->backupToRemoveA, 'w');
         file_put_contents($this->backupToRemoveB, 'w');
@@ -63,9 +68,9 @@ class CronTest extends \PHPUnit_Framework_TestCase
         if (file_exists($this->backupToRemoveB)) {
             unlink($this->backupToRemoveB);
         }
-        array_map('unlink', glob(UPDATER_BP . '/var/backup/*.zip'));
-        if (is_dir(TESTS_TEMP_DIR . '/var/backup')) {
-            rmdir(TESTS_TEMP_DIR . '/var/backup');
+        array_map('unlink', glob($this->backupPath . '/*.zip'));
+        if (is_dir($this->backupPath)) {
+            rmdir($this->backupPath);
             rmdir(TESTS_TEMP_DIR . '/var');
         }
     }
@@ -82,15 +87,10 @@ class CronTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(file_exists($this->backupToRollback));
         $this->assertTrue(file_exists($this->backupToRemoveA));
         $this->assertTrue(file_exists($this->backupToRemoveB));
-        $currentBackups = scandir(UPDATER_BP . '/var/backup/');
 
         file_put_contents(MAGENTO_BP . '/var/.update_queue.json',
             '{
               "jobs": [
-                {
-                  "name": "backup",
-                  "params": {}
-                },
                 {
                   "name": "remove_backups",
                   "params": {
@@ -106,11 +106,6 @@ class CronTest extends \PHPUnit_Framework_TestCase
         shell_exec('php -f ' . $this->cronScript);
 
         $jobStatus = $this->status->get();
-        // verify new backup was created
-        $updatedBackups = scandir(UPDATER_BP . '/var/backup/');
-        $this->assertTrue(count($updatedBackups) > count($currentBackups));
-        $this->assertContains('Job "<backup>[]" has been successfully completed', $jobStatus);
-
         // verify removals
         $this->assertNotContains('An error occurred while executing job "<remove_backups>"', $jobStatus);
         $this->assertContains('Job "<remove_backups>{"backups_file_names":["' .

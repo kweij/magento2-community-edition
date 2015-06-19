@@ -32,10 +32,10 @@ try {
         );
         try {
             $job->execute();
+            $status->add(sprintf('Job "%s" has been successfully completed', $job));
         } catch (\Exception $e) {
             $status->add(sprintf('An error occurred while executing job "%s": %s', $job, $e->getMessage()));
         }
-        $status->add(sprintf('Job "%s" has been successfully completed', $job));
     }
 } catch (\Exception $e) {
     $status->add($e->getMessage());

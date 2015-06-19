@@ -27,7 +27,11 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
         copy(__DIR__ . '/../../_files/composer.json', $this->composerConfigFilePath);
         $this->expectedRequireDirectiveParam = [
             [ComposerManager::PACKAGE_NAME => "php", ComposerManager::PACKAGE_VERSION => "~5.6.0"],
-            [ComposerManager::PACKAGE_NAME => "composer/composer", ComposerManager::PACKAGE_VERSION => "1.0.0-alpha8"]
+            [ComposerManager::PACKAGE_NAME => "composer/composer", ComposerManager::PACKAGE_VERSION => "1.0.0-alpha8"],
+            [
+                ComposerManager::PACKAGE_NAME => "magento/product-community-edition",
+                ComposerManager::PACKAGE_VERSION => "0.74.0-beta12"
+            ]
         ];
     }
 
@@ -41,9 +45,13 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
     {
         $composerManager = new ComposerManager($this->composerConfigFileDir);
         $composerManager->updateComposerConfigFile('require', $this->expectedRequireDirectiveParam);
-        $expectedRequireDirective = ["php" => "~5.6.0", "composer/composer" => "1.0.0-alpha8"];
+        $expectedRequireDirective = [
+            "php" => "~5.6.0",
+            "composer/composer" => "1.0.0-alpha8",
+            "magento/product-community-edition" => "0.74.0-beta12"
+        ];
         $actualRequireDirective = json_decode(file_get_contents($this->composerConfigFilePath), true)['require'];
-        $this->assertEquals($expectedRequireDirective, $actualRequireDirective );
+        $this->assertEquals($expectedRequireDirective, $actualRequireDirective);
     }
 
     /**
