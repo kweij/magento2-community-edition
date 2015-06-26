@@ -2,13 +2,13 @@
     "name": "magento/project-community-edition",
     "description": "eCommerce Platform for Growth (Community Edition)",
     "type": "project",
-    "version": "0.74.0-beta14",
+    "version": "0.74.0-beta15",
     "license": [
         "OSL-3.0",
         "AFL-3.0"
     ],
     "require": {
-        "magento/product-community-edition": "0.74.0-beta14"
+        "magento/product-community-edition": "0.74.0-beta15"
     },
     "require-dev": {
         "phpunit/phpunit": "4.1.0",
@@ -27,6 +27,7 @@
         "ext-iconv": "*",
         "ext-intl": "*",
         "ext-xsl": "*",
+        "ext-mbstring": "*",
         "sjparkinson/static-review": "~4.1",
         "fabpot/php-cs-fixer": "~1.2",
         "lusitanian/oauth": "~0.3"
