@@ -19,6 +19,11 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
     /** @var string */
     protected $composerContent;
 
+    /**
+     * @var \Magento\Update\Queue\JobUpdate\ComposerManager
+     */
+    protected $composerManager;
+
     protected function setUp()
     {
         parent::setUp();
@@ -33,6 +38,7 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
                 ComposerManager::PACKAGE_VERSION => "0.74.0-beta12"
             ]
         ];
+        $this->composerManager = new ComposerManager($this->composerConfigFileDir);
     }
 
     protected function tearDown()
@@ -43,8 +49,7 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
 
     public function testUpdateComposerConfigFile()
     {
-        $composerManager = new ComposerManager($this->composerConfigFileDir);
-        $composerManager->updateComposerConfigFile('require', $this->expectedRequireDirectiveParam);
+        $this->composerManager->updateComposerConfigFile('require', $this->expectedRequireDirectiveParam);
         $expectedRequireDirective = [
             "php" => "~5.6.0",
             "composer/composer" => "1.0.0-alpha8",
@@ -60,8 +65,7 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
      */
     public function testUpdateComposerConfigFileNonSupportedDirective()
     {
-        $composerManager = new ComposerManager($this->composerConfigFileDir);
-        $composerManager->updateComposerConfigFile('nonSupport', $this->expectedRequireDirectiveParam);
+        $this->composerManager->updateComposerConfigFile('nonSupport', $this->expectedRequireDirectiveParam);
     }
 
     /**
@@ -73,8 +77,7 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
         $expectedRequireDirectiveParam = [
             [ComposerManager::PACKAGE_NAME => "php"],
         ];
-        $composerManager = new ComposerManager($this->composerConfigFileDir);
-        $composerManager->updateComposerConfigFile('require', $expectedRequireDirectiveParam);
+        $this->composerManager->updateComposerConfigFile('require', $expectedRequireDirectiveParam);
     }
 
     public function testUpdateComposerConfigFileAddNewDependency()
@@ -87,8 +90,7 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
                 ComposerManager::PACKAGE_VERSION => $testPackageVersion
             ]
         ];
-        $composerManager = new ComposerManager($this->composerConfigFileDir);
-        $composerManager->updateComposerConfigFile('require', $expectedRequireDirectiveParam);
+        $this->composerManager->updateComposerConfigFile('require', $expectedRequireDirectiveParam);
         $fileJsonFormat = json_decode(file_get_contents($this->composerConfigFilePath), true);
 
         // Assert that dependency is removed from "replace"
@@ -98,5 +100,13 @@ class ComposerManagerTest extends \PHPUnit_Framework_TestCase
         $actualRequireDirective = $fileJsonFormat['require'];
         $this->assertTrue(array_key_exists($testPackageName, $actualRequireDirective));
         $this->assertEquals($testPackageVersion, $actualRequireDirective[$testPackageName]);
+    }
+
+    public function testGetAvailableVersions()
+    {
+        $package = 'magento/product-community-edition';
+        $actualVersions = $this->composerManager->getAvailableVersions($package);
+        $this->assertNotEmpty($actualVersions);
+        $this->assertContains('dev-master', $actualVersions);
     }
 }

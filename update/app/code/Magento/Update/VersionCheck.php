@@ -6,11 +6,15 @@
 
 namespace Magento\Update;
 
+use Magento\Update\Queue\JobUpdate\ComposerManager;
+
 /**
  * Utility class that checks available versions for Magento Community Edition
  */
 class VersionCheck
 {
+    const DEFAULT_PACKAGE = 'magento/product-community-edition';
+
     /**
      * @var string
      */
@@ -22,40 +26,44 @@ class VersionCheck
     protected $availableVersions;
 
     /**
+     * @var \Magento\Update\Queue\JobUpdate\ComposerManager
+     */
+    protected $composerManager;
+
+    /**
+     * @var string
+     */
+    protected $package;
+
+    /**
      * Initialize dependencies.
      *
+     * @param string|null $package Name of package
      * @param string|null $composerConfigFileDir
+     * @param \Magento\Update\Queue\JobUpdate\ComposerManager|null $composerManager
      */
-    public function __construct($composerConfigFileDir = null)
-    {
-        $this->composerConfigFileDir = $composerConfigFileDir ? $composerConfigFileDir : MAGENTO_BP;
+    public function __construct(
+        $package = self::DEFAULT_PACKAGE,
+        $composerConfigFileDir = MAGENTO_BP,
+        ComposerManager $composerManager = null
+    ) {
+        $this->package = $package;
+        $this->composerConfigFileDir = $composerConfigFileDir;
+        $this->composerManager = $composerManager
+            ? $composerManager
+            : new ComposerManager(
+                $this->composerConfigFileDir
+            );
     }
 
     /**
-     * Retrieve all available versions for magento/product-community-edition package
+     * Retrieve all available versions for a package
      *
      * @return array
      */
     public function getAvailableVersions()
     {
-        $vendorName = 'magento';
-        $packageName = 'product-community-edition';
-
-        $fullCommand = sprintf(
-            'cd %s && php -f %s/vendor/composer/composer/bin/composer show %s/%s | grep "versions"',
-            $this->composerConfigFileDir,
-            UPDATER_BP,
-            $vendorName,
-            $packageName
-        );
-
-        exec($fullCommand, $output, $return);
-
-        if ($return) {
-            throw new \RuntimeException(sprintf('Command "%s" failed: %s', $fullCommand, join("\n", $output)));
-        }
-
-        $this->availableVersions = explode(', ', str_replace('versions : ', '', $output[0]));
+        $this->availableVersions = $this->composerManager->getAvailableVersions($this->package);
         return $this->availableVersions;
     }
 
@@ -66,8 +74,7 @@ class VersionCheck
      */
     public function getLatestProductVersion()
     {
-        $availableVersions =
-            isset($this->availableVersions) ? $this->availableVersions : $this->getAvailableVersions();
+        $availableVersions = isset($this->availableVersions) ? $this->availableVersions : $this->getAvailableVersions();
 
         foreach ($availableVersions as $version) {
             if (substr($version, 0, 3) !== 'dev') {
@@ -85,8 +92,7 @@ class VersionCheck
      */
     public function getLatestDevelopmentVersion()
     {
-        $availableVersions =
-            isset($this->availableVersions) ? $this->availableVersions: $this->getAvailableVersions();
+        $availableVersions = isset($this->availableVersions) ? $this->availableVersions : $this->getAvailableVersions();
 
         foreach ($availableVersions as $version) {
             if (substr($version, 0, 3) === 'dev') {

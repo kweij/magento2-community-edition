@@ -19,14 +19,21 @@ class ComposerManager
      */
     const COMPOSER_UPDATE = 'update';
     const COMPOSER_REQUIRE = 'require';
+    const COMPOSER_SHOW = 'show';
     /**#@-*/
 
     const PACKAGE_NAME = 'package_name';
     const PACKAGE_VERSION = 'package_version';
 
+    /**#@+
+     * Composer command params
+     */
     const PARAM_COMMAND = 'command';
     const PARAM_NO_UPDATE = '--no-update';
     const PARAM_PACKAGES = 'packages';
+    const PARAM_PACKAGE = 'package';
+    const PARAM_AVAILABLE = '--available';
+    /**#@-*/
 
     const COMPOSER_HOME_DIR = 'var/composer_home';
 
@@ -95,6 +102,33 @@ class ComposerManager
     }
 
     /**
+     * Retrieve all available versions for a package
+     *
+     * @param string $package
+     * @return array
+     * @throws \RuntimeException
+     */
+    public function getAvailableVersions($package)
+    {
+        $versionsPattern = '/^versions\s*\:\s(.+)$/m';
+
+        $commandParams = [
+            self::PARAM_COMMAND => self::COMPOSER_SHOW,
+            self::PARAM_PACKAGE => $package,
+            self::PARAM_AVAILABLE => true
+        ];
+        $result = $this->runComposerCommand($commandParams);
+        $matches = [];
+        preg_match($versionsPattern, $result, $matches);
+        if (!isset($matches[1])) {
+            throw new \RuntimeException(
+                sprintf('Couldn\'t get available versions for package %s', $commandParams[self::PARAM_PACKAGE])
+            );
+        }
+        return explode(', ', $matches[1]);
+    }
+
+    /**
      * Update require directive in composer config file
      *
      * @param array $params
@@ -127,16 +161,18 @@ class ComposerManager
     {
         $input = $this->consoleArrayInputFactory->create($commandParams);
         $this->consoleApplication->setAutoExit(false);
-        putenv('COMPOSER_HOME=' . self::COMPOSER_HOME_DIR);
+        putenv('COMPOSER_HOME=' . $this->composerConfigFileDir . '/' . self::COMPOSER_HOME_DIR);
         putenv('COMPOSER=' . $this->composerConfigFileDir . '/composer.json');
         $exitCode = $this->consoleApplication->run($input, $this->consoleOutput);
+        $output = $this->consoleOutput->fetch();
 
         if ($exitCode) {
+            $commandParamsString = json_encode($commandParams, JSON_UNESCAPED_SLASHES);
             throw new \RuntimeException(
-                sprintf('Command "%s" failed: %s', $commandParams['command'], $this->consoleOutput->fetch())
+                sprintf('Command "%s"%s failed: %s', $commandParams['command'], $commandParamsString, $output)
             );
         }
-        return true;
+        return $output;
     }
 
     /**
