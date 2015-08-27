@@ -9,8 +9,8 @@
     ],
     "require": {
         "php": "~5.5.0|~5.6.0",
-        "composer/composer": "1.0.0-alpha8",
-        "symfony/console": "2.4.*"
+        "composer/composer": "1.0.0-alpha10",
+        "symfony/console": "~2.3 <2.7"
     },
     "autoload": {
         "psr-4": {
